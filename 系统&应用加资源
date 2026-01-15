@@ -1,0 +1,71 @@
+# 给指定的应用服务器加资源（系统内存+ 应用内存+）
+#涉及到内存的调整，需要停止当前服务器上还活跃着的应用和进程，并随后关闭服务器（poweroff in linux command）
+
+当前企业使用的是kvm， libvirt-qemu, cephfs 
+kvminfo 去看主机host是否有足够内存
+我们一般采用的加资源方式分两种：
+1.一种是把某一镜像盘文件直接扩展
+2.直接在host新建一个指定空间大小的镜像盘文件，然后vnc调整分配内存以及做lvm扩展和部署动作。
+这里我们常用的是第2种方法。
+首先我们要确定需要加空间的vm 以及该vm所在的host
+然后puty ssh login vm
+user:root -> poweroff
+puty ssh login host
+ensure vm is status of "shut off"
+virsh list --all
+发现vm已经处于in shutdown，直至shut off
+ceph df 可以查看该cephfs的ceph池的空余空间(Avail)
+rbd -p libvirt-pool ls | grep [hostname-vm] 可以查看该vm的所有镜像盘文件
+"qemu-img create rbd:libvirt-pool/idc2vmC17-t1csg5a-D05.img:conf=/etc/ceph/cephspace.conf 200G"
+创建指定vm的指定空间大小的新镜像盘文件
+rbd -p libvirt-pool info [new_img_file] 确定配置信息无误
+ 
+virsh dumpxml [hostname-vm] 可以查看该vm的所有盘以及内置组件的配置内容
+virsh edit [hostname-vm] 在其中新增我们刚创建的镜像文件对应的盘配置
+(只需要复制前面的，然后再修改sdX， D0X 以及unit=X）
+    <disk type='network' device='disk'>
+      <driver name='qemu' type='raw' cache='writeback' discard='unmap'/>
+      <auth username='libvirt'>
+        <secret type='ceph' uuid='143b6a6f-abdc-403b-9c15-80c9769b4b11'/>
+      </auth>
+      <source protocol='rbd' name='libvirt-pool/idc2vmC17-t1csg5a-D03.img'>
+        <host name='idc2vmC01' port='6789'/>
+        <host name='idc2vmC02' port='6789'/>
+        <host name='idc2vmC03' port='6789'/>
+        <host name='idc2vmC04' port='6789'/>
+        <host name='idc2vmC05' port='6789'/>
+        <config file='/etc/ceph/cephspace.conf'/>
+      </source>
+      <target dev='sdd' bus='scsi'/>
+      <alias name='scsi0-0-0-3'/>
+      <address type='drive' controller='0' bus='0' target='0' unit='3'/>
+    </disk>
+然后打开vnc 连接到当前的host 打开该vm界面 click灯泡 手动调整memory配置
+然后apply 就可以点击▲重启；
+重启完成就可以restart session of puty
+接下来要到vm的ssh 界面开始lvm动作：
+首先确保user是root
+lsblk 可以看到新增的磁盘
+一般新增的磁盘无论你在host新增的叫什么，在vm这边看基本上都是sdb
+lsblk新增的磁盘如何辨认？
+基本没有└─VGL-D01 253:0    0  697G  0 lvm  /d01 类似这种，就是没VGL的归属，也没有mountpoint
+pvcreate /dev/sdb 新增物理卷
+pvdisplay 可以看到新增的physical volume.
+会看到"dev/sdb" is a new physical volume of "200GiB"
+vgextend VGL /dev/sdb 给卷组做拓展
+vgdisplay -v 	注意这个logical volume的LV Path
+lvextend -l +199 /dev/VGL/D02 给逻辑卷做拓展
+# +199就是看vgdisplay -v 新增的pv 的total PE 
+  PV Name               /dev/sdb
+  PV UUID               Bn5YuY-3kOd-iTm9-eExS-OxFI-465o-TwRKzL
+  PV Status             allocatable
+  Total PE / Free PE    199 / 199
+所以是加199咯 
+至于后面的LV PATH 请根据具体情况具体考虑。
+有的时候，一台机可能有两个或两个以上的逻辑卷 请根据文件的ls -l以及其他数据盘文件是挂接的哪个卷来判定！
+df -khT  发现磁盘空间仍未更新
+xfs_growfs /dev/VGL/D02 对文件系统进行拓展
+df -khT  发现新加的磁盘已经成功挂接到指定的逻辑卷上啦
+
+#以上仅仅只是系统内存得到了拓展和实际部署，我们还要对对应的应用加上内存（可能）（基本都有自己的应用配置文件）
+#全都处理好了 方能启动应用
