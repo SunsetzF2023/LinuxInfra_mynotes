@@ -1,0 +1,4 @@
+crond 自动化定时脚本示例：
+00,30,45 17 * * * /oper/publisher/program/newsBackup/HK/FTP/ftp.solicitor > /dev/null 2>&1
+每天的17点的00分 30分 45分 执行后面的脚本 且不输出任何信息。
+
