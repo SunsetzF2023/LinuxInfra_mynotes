@@ -1,0 +1,8 @@
+#!/bin/bash
+
+./vm-create c6 idcvm79-river06 river06 192.168.158.140 idcvm79G 2 8 1 ; \
+./vm-create c6 idcvm85-river07 river07 192.168.158.141 idcvm85G 2 8 1 ; \
+./vm-create c6 idcvm84-river16 river16 192.168.158.142 idcvm84G 2 8 1 ; \
+./vm-create c6 idcvm80-river17 river17 192.168.158.143 idcvm80G 2 8 1 ; \
+./vm-create c6 idcvm86-river26 river26 192.168.158.144 idcvm86G 2 8 1 ; \
+./vm-create c6 idcvm87-river27 river27 192.168.158.145 idcvm87G 2 8 1

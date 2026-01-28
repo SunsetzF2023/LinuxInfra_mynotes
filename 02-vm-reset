@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#if [ -z "$2" ]
+#then
+#        echo "Usage: vm-reset [New Domain] [New Domain Hostname]"
+#	echo "eg. vm-reset idcvm42-test2 test2"
+#        echo "Press any key to continue ..." ; read
+#        exit
+#fi
+
+#DMN_NEW=$1
+#DMN_NEW_HOSTNAME=$2
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	virt-sysprep -d ${DMN_NEW} \
+	 --enable hostname,logfiles,mail-spool,net-hwaddr,random-seed,rhn-systemid,smolt-uuid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid \
+	 --hostname ${DMN_NEW_HOSTNAME}.wisers.com
+	RET=$?
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${DMN_NEW_VMHOST} "virt-sysprep -d ${DMN_NEW} --enable logfiles,mail-spool,net-hwaddr,rhn-systemid,smolt-uuid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid --hostname ${DMN_NEW_HOSTNAME}.wisers.com"
+	RET=$?
+	;;
+*)
+	#virt-sysprep -d ${DMN_NEW} \
+	# --enable=hostname,logfiles,mail-spool,net-hwaddr,random-seed,rhn-systemid,smolt-uuid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid \
+	# --hostname ${DMN_NEW_HOSTNAME}.wisers.com
+#	virt-sysprep -d ${DMN_NEW} \
+#	 --enable hostname,logfiles,mail-spool,net-hwaddr,random-seed,rhn-systemid,smolt-uuid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid \
+#	 --hostname ${DMN_NEW_HOSTNAME}.wisers.com
+	case ${OSVER} in
+	c8|C8|a8|A8)
+		ssh ${DMN_NEW_VMHOST} "virt-sysprep -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+		--enable logfiles,mail-spool,net-hwaddr,rhn-systemid,smolt-uuid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid \
+		--hostname ${DMN_NEW_HOSTNAME}.wisers.com"
+		RET=$?
+		;;
+	*)
+		virt-sysprep -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+		 --enable hostname,logfiles,mail-spool,net-hwaddr,random-seed,rhn-systemid,smolt-uuid,ssh-hostkeys,udev-persistent-net,utmp,yum-uuid \
+	 	--hostname ${DMN_NEW_HOSTNAME}.wisers.com
+		RET=$?
+		;;
+	esac
+	;;
+esac
+if [ "${RET}" = 0 ]
+then
+	echo -e "[02]New Domain ${DMN_NEW} reset successfully"
+else
+	echo -e "\n[02]New Domain ${DMN_NEW} reset FAIL\n"
+	exit 999
+fi
+

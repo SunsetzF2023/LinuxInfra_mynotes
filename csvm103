@@ -1,0 +1,26 @@
+#!/bin/bash
+
+./vm-create c6 t1csvm103-t1cs103a t1cs103a 192.168.158.190 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103a t2cs103a 192.168.158.194 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103a t3cs103a 192.168.158.198 t3csvm103 2 31 2 ; \
+./vm-create c6 t1csvm103-t1cs103b t1cs103b 192.168.158.191 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103b t2cs103b 192.168.158.195 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103b t3cs103b 192.168.158.199 t3csvm103 2 31 2 ; \
+./vm-create c6 t1csvm103-t1cs103c t1cs103c 192.168.158.192 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103c t2cs103c 192.168.158.196 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103c t3cs103c 192.168.158.200 t3csvm103 2 31 2 ; \
+./vm-create c6 t1csvm103-t1cs103d t1cs103d 192.168.158.193 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103d t2cs103d 192.168.158.197 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103d t3cs103d 192.168.158.201 t3csvm103 2 31 2 ; \
+./vm-create c6 t1csvm103-t1cs103e t1cs103e 192.168.154.140 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103e t2cs103e 192.168.154.144 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103e t3cs103e 192.168.154.148 t3csvm103 2 31 2 ; \
+./vm-create c6 t1csvm103-t1cs103f t1cs103f 192.168.154.141 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103f t2cs103f 192.168.154.145 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103f t3cs103f 192.168.154.149 t3csvm103 2 31 2 ; \
+./vm-create c6 t1csvm103-t1cs103g t1cs103g 192.168.154.142 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103g t2cs103g 192.168.154.146 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103g t3cs103g 192.168.154.150 t3csvm103 2 31 2 ; \
+./vm-create c6 t1csvm103-t1cs103h t1cs103h 192.168.154.143 t1csvm103 2 31 2 ; \
+./vm-create c6 t2csvm103-t2cs103h t2cs103h 192.168.154.147 t2csvm103 2 31 2 ; \
+./vm-create c6 t3csvm103-t3cs103h t3cs103h 192.168.154.151 t3csvm103 2 31 2 ;

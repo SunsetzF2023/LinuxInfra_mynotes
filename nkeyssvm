@@ -1,0 +1,5 @@
+#!/bin/bash
+
+./vm-create c6 t1csvm102-t1nkeyss01 t1nkeyss01 192.168.158.167 t1csvm102 4 32 3 ; \
+./vm-create c6 t2csvm102-t2nkeyss01 t2nkeyss01 192.168.158.168 t2csvm102 4 32 3 ; \
+./vm-create c6 t3csvm102-t3nkeyss01 t3nkeyss01 192.168.158.169 t3csvm102 4 32 3

@@ -1,0 +1,87 @@
+#!/bin/bash
+
+#DMN_NEW=idc2vm68-mydb02
+#DMN_NEW_VMHOST=idc2vm68
+#DMN_NEW_IP=192.168.203.202
+#DMN_NEW_VOLUME=G
+
+XMLPATH="/etc/libvirt/qemu"
+XMLFILE=${DMN_NEW}.xml
+XMLDMN="${XMLPATH}/${XMLFILE}"
+UPPER_VMHOST=`echo ${DMN_NEW_VMHOST}|tr [a-z] [A-Z]`
+DMN_NEW_IF=`echo ${DMN_NEW_IP}|cut -f3 -d.`
+
+cat /dev/null > ${XMLDMN}
+
+echo "<domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>" >> ${XMLDMN}
+echo "  <name>${DMN_NEW}</name>" >> ${XMLDMN}
+echo "  <memory unit='KiB'>4194304</memory>" >> ${XMLDMN}
+echo "  <currentMemory unit='KiB'>4194304</currentMemory>" >> ${XMLDMN}
+echo "  <vcpu placement='static' current='2'>8</vcpu>" >> ${XMLDMN}
+echo "  <os>" >> ${XMLDMN}
+echo "    <type arch='x86_64'>hvm</type>" >> ${XMLDMN}
+echo "    <boot dev='hd'/>" >> ${XMLDMN}
+echo "  </os>" >> ${XMLDMN}
+echo "  <features>" >> ${XMLDMN}
+echo "    <acpi/>" >> ${XMLDMN}
+echo "    <apic/>" >> ${XMLDMN}
+echo "    <pae/>" >> ${XMLDMN}
+echo "  </features>" >> ${XMLDMN}
+case ${UPPER_VMHOST} in
+IDC3SVMC*)
+	echo "  <cpu mode='custom' match='exact' check='none'>" >> ${XMLDMN}
+	echo "    <model fallback='forbid'>qemu64</model>" >> ${XMLDMN}
+	echo "  </cpu>" >> ${XMLDMN}
+	;;
+esac
+echo "  <clock offset='utc'/>" >> ${XMLDMN}
+echo "  <on_poweroff>destroy</on_poweroff>" >> ${XMLDMN}
+echo "  <on_reboot>restart</on_reboot>" >> ${XMLDMN}
+echo "  <on_crash>restart</on_crash>" >> ${XMLDMN}
+echo "  <devices>" >> ${XMLDMN}
+echo "    <emulator>/usr/libexec/qemu-kvm</emulator>" >> ${XMLDMN}
+echo "    <disk type='network' device='disk'>" >> ${XMLDMN}
+#echo "      <driver name='qemu' type='raw' cache='writeback' discard='unmap'/>" >> ${XMLDMN}
+echo "      <driver name='qemu' type='raw' discard='unmap'/>" >> ${XMLDMN}
+echo "      <auth username='wiseceph-idc3s.libvirt'>" >> ${XMLDMN}
+echo "        <secret type='ceph' uuid='2d2918bf-5bbd-456d-a864-b87bc6a77036'/>" >> ${XMLDMN}
+echo "      </auth>" >> ${XMLDMN}
+echo "      <source protocol='rbd' name='libvirt-pool/${DMN_NEW}.img'>" >> ${XMLDMN}
+echo "        <host name='idc3s-mon01' port='6789'/>" >> ${XMLDMN}
+echo "        <host name='idc3s-mon02' port='6789'/>" >> ${XMLDMN}
+echo "        <host name='idc3s-mon03' port='6789'/>" >> ${XMLDMN}
+echo "        <host name='idc3s-mon04' port='6789'/>" >> ${XMLDMN}
+echo "        <host name='idc3s-mon05' port='6789'/>" >> ${XMLDMN}
+echo "        <config file='/etc/ceph/wiseceph-idc3s.conf'/>" >> ${XMLDMN}
+echo "      </source>" >> ${XMLDMN}
+echo "      <target dev='sda' bus='scsi'/>" >> ${XMLDMN}
+echo "    </disk>" >> ${XMLDMN}
+echo "    <disk type='file' device='cdrom'>" >> ${XMLDMN}
+echo "      <driver name='qemu' type='raw'/>" >> ${XMLDMN}
+echo "      <target dev='hda' bus='ide'/>" >> ${XMLDMN}
+echo "      <readonly/>" >> ${XMLDMN}
+echo "    </disk>" >> ${XMLDMN}
+echo "    <controller type='scsi' index='0' model='virtio-scsi'/>" >> ${XMLDMN}
+echo "    <interface type='bridge'>" >> ${XMLDMN}
+echo "      <source bridge='bri_${DMN_NEW_IF}'/>" >> ${XMLDMN}
+echo "      <model type='virtio'/>" >> ${XMLDMN}
+echo "    </interface>" >> ${XMLDMN}
+echo "    <graphics type='vnc' port='-1' autoport='yes'/>" >> ${XMLDMN}
+echo "    <video>" >> ${XMLDMN}
+echo "      <model type='cirrus' vram='9216' heads='1'/>" >> ${XMLDMN}
+echo "    </video>" >> ${XMLDMN}
+echo "    <memballoon model='virtio'>" >> ${XMLDMN}
+echo "    </memballoon>" >> ${XMLDMN}
+echo "  </devices>" >> ${XMLDMN}
+echo "<qemu:commandline>" >> ${XMLDMN}
+echo "  <qemu:arg value='-set'/>" >> ${XMLDMN}
+echo "  <qemu:arg value='device.scsi0-0-0-0.discard_granularity=4096'/>" >> ${XMLDMN}
+echo "  <qemu:arg value='-set'/>" >> ${XMLDMN}
+echo "  <qemu:arg value='device.scsi0-0-0-1.discard_granularity=4096'/>" >> ${XMLDMN}
+echo "</qemu:commandline>" >> ${XMLDMN}
+echo "</domain>" >> ${XMLDMN}
+
+#virsh define ${XMLDMN}
+scp -p ${XMLDMN} ${DMN_NEW_VMHOST}:/etc/libvirt/qemu
+ssh ${DMN_NEW_VMHOST} "virsh define ${XMLDMN}"
+

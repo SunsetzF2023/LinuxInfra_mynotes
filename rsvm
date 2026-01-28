@@ -1,0 +1,10 @@
+#!/bin/bash
+
+./vm-create c6 t2rsvm03-t2rs11 t2rs11 192.168.156.185 t2rsvm03 4 72 2 ; \
+./vm-create c6 t2rsvm03-t2rs12 t2rs12 192.168.156.186 t2rsvm03 4 58 2 ; \
+./vm-create c6 t2rsvm03-t2rs14 t2rs14 192.168.158.185 t2rsvm03 4 32 2 ; \
+./vm-create c6 t2rsvm03-t2rs15 t2rs15 192.168.158.186 t2rsvm03 4 32 1 ; \
+./vm-create c6 t3rsvm03-t3rs11 t3rs11 192.168.156.187 t3rsvm03 4 72 2 ; \
+./vm-create c6 t3rsvm03-t3rs12 t3rs12 192.168.156.188 t3rsvm03 4 58 2 ; \
+./vm-create c6 t3rsvm03-t3rs14 t3rs14 192.168.158.187 t3rsvm03 4 32 2 ; \
+./vm-create c6 t3rsvm03-t3rs15 t3rs15 192.168.158.188 t3rsvm03 4 32 1

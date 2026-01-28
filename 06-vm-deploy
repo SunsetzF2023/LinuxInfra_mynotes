@@ -1,0 +1,475 @@
+#!/bin/bash
+
+DMN_NEW_IF=`echo ${DMN_NEW_IP}|cut -f3 -d.`
+SERIAL_XML="/SS.team/script/qemu-guest-agent/virtio-serial.xml"
+AGENT_XML="/SS.team/script/qemu-guest-agent/agent.xml"
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	GUESTFISH="guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img"
+	VIRTEDIT="virt-edit -d ${DMN_NEW}"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	GUESTFISH='ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW}'
+	VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit -d ${DMN_NEW}"
+	;;
+*)
+	case ${OSVER} in
+	c8|C8|a8|A8)
+		GUESTFISH='ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW}'
+		VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit -d ${DMN_NEW}"
+		;;
+	*)
+		GUESTFISH="guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img"
+#		VIRTEDIT="virt-edit"
+		VIRTEDIT="virt-edit -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img"
+		;;
+	esac
+	;;
+esac
+
+#${VIRTEDIT} -d ${DMN_NEW} /root/initial-install.log -e "s/FINISHED/FINISHED/"
+${VIRTEDIT} /root/initial-install.log -e "s/FINISHED/FINISHED/"
+
+#${VIRTEDIT} -d ${DMN_NEW} /root/.bash_profile -e "s/vmcontrol/${DMN_NEW_VMHOST}/"
+${VIRTEDIT} /root/.bash_profile -e "s/vmcontrol/${DMN_NEW_VMHOST}/"
+
+case ${OSVER} in
+c6|C6)
+	${VIRTEDIT} -d ${DMN_NEW} /etc/hosts -e "s/192.168.156.14/${DMN_NEW_IP}/"
+	${VIRTEDIT} /etc/hosts -e "s/192.168.156.14/${DMN_NEW_IP}/"
+	;;
+c4|C4)
+	${VIRTEDIT} -d ${DMN_NEW} /etc/hosts -e "s/centos4/${DMN_NEW_HOSTNAME}/g"
+	${VIRTEDIT} /etc/hosts -e "s/centos4/${DMN_NEW_HOSTNAME}/g"
+	;;
+c7|C7)
+#	${VIRTEDIT} -d ${DMN_NEW} /etc/hostname -e "s/centos7/${DMN_NEW_HOSTNAME}/g"
+	${VIRTEDIT} /etc/hostname -e "s/centos7/${DMN_NEW_HOSTNAME}/g"
+	;;
+c8|C8|a8|A8)
+#	${VIRTEDIT} -d ${DMN_NEW} /etc/hostname -e "s/centos8/${DMN_NEW_HOSTNAME}/g"
+	${VIRTEDIT} /etc/hostname -e "s/centos8/${DMN_NEW_HOSTNAME}/g"
+	;;
+esac
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	chown qemu:qemu /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+	chmod +r /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	echo ""
+	;;
+*)
+	case ${OSVER} in
+	c4|C4|c6|C6)
+		mv /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_ORIG}.img /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+		;;
+	esac
+	chown qemu:qemu /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+	chmod +r /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+	;;
+esac
+#scp -p /var/lib/libvirt/images/${DMN_NEW}.img ${DMN_NEW_VMHOST}:/var/lib/libvirt/images/${DMN_NEW_IMG_DIR}
+#ssh ${DMN_NEW_VMHOST} "virt-v2v -ic qemu+ssh://root@vmcontrol.wisers.com/system -op ${DMN_NEW_VMHOST}S -oa sparse --bridge bri_${DMN_NEW_IF} ${DMN_NEW}"
+#RET="$?"
+#if [ "${RET}" != 0 ]
+#then
+#	echo -e "\n[06]New Domain ${DMN_NEW} System Image transferred FAIL\n"
+#	exit 999
+#fi
+
+TMPDIR="${VMSCRIPTHOME}/tmp"
+cp -pf /etc/libvirt/qemu/${DMN_NEW}.xml /etc/libvirt/qemu/deployed
+cp -pf /etc/libvirt/qemu/${DMN_NEW}.xml ${TMPDIR}
+cd ${TMPDIR}
+case ${OSVER} in
+c4|c6|C4|C6)
+  MATCHED=`grep "clock offset" ${DMN_NEW}.xml|grep utc|grep -v grep|wc -l`
+  [ "${MATCHED}" -eq 1 ] && sed -i "s/utc/localtime/" ${DMN_NEW}.xml
+  ;;
+esac
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	 sed -i "s/${DMN_NEW_VOLUME_POOL_SYSTEM}\/${DMN_ORIG}/${DMN_NEW_VOLUME_POOL_SYSTEM}\/${DMN_NEW}/" ${DMN_NEW}.xml
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	echo ""
+	;;
+IDC3VM0*|IDC3VM1*|IDC3VM2[345678]*|IDC3VM3[789]*|IDC3VM4*|IDC3VMX*|IDC3VMD*)
+	echo ""
+	;;
+*)
+	sed -i "s/${DMN_NEW_VOLUME_POOL_SYSTEM}\/${DMN_ORIG}/${DMN_NEW_VOLUME_POOL_SYSTEM}\/${DMN_NEW}/" ${DMN_NEW}.xml
+	#sed -i "s/disk type\='file' device\='disk'/disk type\='network' device\='disk'/" ${DMN_NEW}.xml
+	;;
+esac
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	scp -p ${DMN_NEW}.xml ${DMN_NEW_VMHOST}:/etc/libvirt/qemu > /dev/null
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh define /etc/libvirt/qemu/${DMN_NEW}.xml"
+	RET="$?"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	echo ""
+	RET="$?"
+	;;
+*)
+	scp -p ${DMN_NEW}.xml ${DMN_NEW_VMHOST}:/etc/libvirt/qemu > /dev/null
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh define /etc/libvirt/qemu/${DMN_NEW}.xml"
+	RET="$?"
+	;;
+esac
+
+if [ "${RET}" != 0 ]
+then
+	echo -e "\n[06]New Domain ${DMN_NEW} defined from /etc/libvirt/qemu/${DMN_NEW}.xml FAIL\n"
+	exit 999
+else
+	echo -e "\n[06]New Domain ${DMN_NEW} defined from /etc/libvirt/qemu/${DMN_NEW}.xml successfully\n"
+fi
+
+if [ ${DMN_NEW_DISK} -gt 0 ]
+then
+    case ${DMN_NEW_VOLUME} in
+    C)
+	case ${UPPER_VMHOST} in
+	IDC2VMC*)
+
+	DEVPATH="/tmp"
+	DEVFILE="dev-${DMN_NEW}.xml"
+	DEVXML="${DEVPATH}/${DEVFILE}"
+	echo "    <disk type='network' device='disk'>" >> ${DEVXML}
+	echo "      <driver name='qemu' type='raw' cache='writeback' discard='unmap'/>" >> ${DEVXML}
+	echo "      <auth username='libvirt'>" >> ${DEVXML}
+	echo "        <secret type='ceph' uuid='143b6a6f-abdc-403b-9c15-80c9769b4b11'/>" >> ${DEVXML}
+	echo "      </auth>" >> ${DEVXML}
+	echo "      <source protocol='rbd' name='libvirt-pool/${DMN_NEW}-D01.img'>" >> ${DEVXML}
+	echo "        <host name='idc2vmC01' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc2vmC02' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc2vmC03' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc2vmC04' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc2vmC05' port='6789'/>" >> ${DEVXML}
+	echo "        <config file='/etc/ceph/cephspace.conf'/>" >> ${DEVXML}
+	echo "      </source>" >> ${DEVXML}
+	echo "      <target dev='sdb' bus='scsi'/>" >> ${DEVXML}
+	echo "    </disk>" >> ${DEVXML}
+	scp -p ${DEVXML} ${DMN_NEW_VMHOST}:${DEVPATH}
+	rm -f ${DEVXML}
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "rm -f ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh define /etc/libvirt/qemu/${DMN_NEW}.xml"
+	;;
+
+	IDC3VMC*)
+
+	DEVPATH="/tmp"
+	DEVFILE="dev-${DMN_NEW}.xml"
+	DEVXML="${DEVPATH}/${DEVFILE}"
+	echo "    <disk type='network' device='disk'>" >> ${DEVXML}
+	echo "      <driver name='qemu' type='raw' discard='unmap'/>" >> ${DEVXML}
+	echo "      <auth username='wiseceph-alc.libvirt'>" >> ${DEVXML}
+	echo "        <secret type='ceph' uuid='4566d975-6ff1-44c8-91ce-3f804c9f5e56'/>" >> ${DEVXML}
+	echo "      </auth>" >> ${DEVXML}
+	echo "      <source protocol='rbd' name='libvirt-pool/${DMN_NEW}-D01.img'>" >> ${DEVXML}
+	echo "        <host name='idc3vmC01-mon01' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3vmC02-mon02' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3vmC03-mon03' port='6789'/>" >> ${DEVXML}
+	echo "        <config file='/etc/ceph/wiseceph-alc.conf'/>" >> ${DEVXML}
+	echo "      </source>" >> ${DEVXML}
+	echo "      <target dev='sdb' bus='scsi'/>" >> ${DEVXML}
+	echo "    </disk>" >> ${DEVXML}
+	scp -p ${DEVXML} ${DMN_NEW_VMHOST}:${DEVPATH}
+	rm -f ${DEVXML}
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "rm -f ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh define /etc/libvirt/qemu/${DMN_NEW}.xml"
+	;;
+
+	IDC3SVMC*)
+
+	DEVPATH="/tmp"
+	DEVFILE="dev-${DMN_NEW}.xml"
+	DEVXML="${DEVPATH}/${DEVFILE}"
+	echo "    <disk type='network' device='disk'>" >> ${DEVXML}
+	echo "      <driver name='qemu' type='raw' discard='unmap'/>" >> ${DEVXML}
+	echo "      <auth username='wiseceph-idc3s.libvirt'>" >> ${DEVXML}
+	echo "        <secret type='ceph' uuid='2d2918bf-5bbd-456d-a864-b87bc6a77036'/>" >> ${DEVXML}
+	echo "      </auth>" >> ${DEVXML}
+	echo "      <source protocol='rbd' name='libvirt-pool/${DMN_NEW}-D01.img'>" >> ${DEVXML}
+	echo "        <host name='idc3s-mon01' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3s-mon02' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3s-mon03' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3s-mon04' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3s-mon05' port='6789'/>" >> ${DEVXML}
+	echo "        <config file='/etc/ceph/wiseceph-idc3s.conf'/>" >> ${DEVXML}
+	echo "      </source>" >> ${DEVXML}
+	echo "      <target dev='sdb' bus='scsi'/>" >> ${DEVXML}
+	echo "    </disk>" >> ${DEVXML}
+	scp -p ${DEVXML} ${DMN_NEW_VMHOST}:${DEVPATH}
+	rm -f ${DEVXML}
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "rm -f ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh define /etc/libvirt/qemu/${DMN_NEW}.xml"
+	;;
+
+	IDC3HVMC*)
+
+	DEVPATH="/tmp"
+	DEVFILE="dev-${DMN_NEW}.xml"
+	DEVXML="${DEVPATH}/${DEVFILE}"
+	echo "    <disk type='network' device='disk'>" >> ${DEVXML}
+	echo "      <driver name='qemu' type='raw' discard='unmap'/>" >> ${DEVXML}
+	echo "      <auth username='wiseceph-idc3h.libvirt'>" >> ${DEVXML}
+	echo "        <secret type='ceph' uuid='a3007bcc-c5aa-4f94-b3ab-23206e724fa7'/>" >> ${DEVXML}
+	echo "      </auth>" >> ${DEVXML}
+	echo "      <source protocol='rbd' name='libvirt-pool/${DMN_NEW}-D01.img'>" >> ${DEVXML}
+	echo "        <host name='idc3h-mon01' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3h-mon02' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3h-mon03' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3h-mon04' port='6789'/>" >> ${DEVXML}
+	echo "        <host name='idc3h-mon05' port='6789'/>" >> ${DEVXML}
+	echo "        <config file='/etc/ceph/wiseceph-idc3h.conf'/>" >> ${DEVXML}
+	echo "      </source>" >> ${DEVXML}
+	echo "      <target dev='sdb' bus='scsi'/>" >> ${DEVXML}
+	echo "    </disk>" >> ${DEVXML}
+	scp -p ${DEVXML} ${DMN_NEW_VMHOST}:${DEVPATH}
+	rm -f ${DEVXML}
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "rm -f ${DEVXML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh define /etc/libvirt/qemu/${DMN_NEW}.xml"
+	;;
+
+	esac
+	;;
+    G|V)
+	case ${UPPER_VMHOST} in
+	IDC3VM0*|IDC3VM1*|IDC3VM2[345678]*|IDC3VM3[789]*|IDC3VM4*|IDC3VMX*|IDC3VMD*)
+		DEVPATH="/tmp"
+		DEVFILE="dev-${DMN_NEW}.xml"
+		DEVXML="${DEVPATH}/${DEVFILE}"
+		echo "    <disk type='network' device='disk'>" >> ${DEVXML}
+		echo "      <driver name='qemu' type='raw' cache='none' discard='unmap'/>" >> ${DEVXML}
+		echo "      <source protocol='gluster' name='GLUS-${UPPER_VMHOST}D/${DMN_NEW}-D01.img'>" >> ${DEVXML}
+		echo "        <host name='${UPPER_VMHOST}' port='0'/>" >> ${DEVXML}
+		echo "      </source>" >> ${DEVXML}
+		echo "      <target dev='sdb' bus='scsi'/>" >> ${DEVXML}
+		echo "    </disk>" >> ${DEVXML}
+		scp -p ${DEVXML} ${DMN_NEW_VMHOST}:${DEVPATH}
+		rm -f ${DEVXML}
+		ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${DEVXML}"
+		ssh ${DMN_NEW_VMHOST} "rm -f ${DEVXML}"
+		ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+		ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+		ssh ${DMN_NEW_VMHOST} "virsh define /etc/libvirt/qemu/${DMN_NEW}.xml"
+		;;
+	*)
+		DISKPART=1
+		while [ ${DISKPART} -le ${DMN_NEW_DISK} ]
+		do
+			case ${DISKPART} in
+			1)  DISKPARTDEVNAME=vdb ;;
+			2)  DISKPARTDEVNAME=vdc ;;
+			3)  DISKPARTDEVNAME=vdd ;;
+			4)  DISKPARTDEVNAME=vde ;;
+			5)  DISKPARTDEVNAME=vdf ;;
+			esac
+			ssh ${DMN_NEW_VMHOST} "virsh attach-disk ${DMN_NEW} /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_DATA}/${DMN_NEW}-D0${DISKPART}.img ${DISKPARTDEVNAME} --cache none --config"
+			ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+			ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+			RET=`expr ${RET} \+ $?`
+			DISKPART=`expr ${DISKPART} \+ 1`
+		done
+		;;
+	esac
+	;;
+    L)
+	UPPER_HOSTNAME=`echo ${DMN_NEW_HOSTNAME}|tr [a-z] [A-Z]`
+	ssh ${DMN_NEW_VMHOST} "virsh attach-disk ${DMN_NEW} /dev/VGKVM/lv${UPPER_HOSTNAME}-data vdb --cache none --sourcetype block --config"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${SERIAL_XML}"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-device --config ${DMN_NEW} ${AGENT_XML}"
+	RET="$?"
+	;;
+    esac
+	if [ "${RET}" != 0 ]
+	then
+		echo -e "\n[06]New Domain ${DMN_NEW} Data Image attached FAIL\n"
+		exit 999
+	else
+		echo -e "\n[06]New Domain ${DMN_NEW} Data Image attached successfully\n"
+	fi
+fi
+
+#guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /home/chk_initial_DONE_v2
+case ${UPPER_VMHOST} in
+IDC2VM33*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /home/chk_initial_DONE_v2
+	[ $? -ne 0 ] && echo "remove /home/chk_initial_DONE_v2 failed"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i rm /home/chk_initial_DONE_v2"
+	[ $? -ne 0 ] && echo "remove /home/chk_initial_DONE_v2 failed"
+	;;
+*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /home/chk_initial_DONE_v2
+	[ $? -ne 0 ] && echo "remove /home/chk_initial_DONE_v2 failed"
+	;;
+esac
+
+#guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /root/.ssh/known_hosts
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /root/.ssh/known_hosts
+	[ $? -ne 0 ] && echo "remove /root/.ssh/known_hosts failed"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i rm /root/.ssh/known_hosts"
+	[ $? -ne 0 ] && echo "remove /root/.ssh/known_hosts failed"
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i rm /sysadmin/.ssh/known_hosts"
+	[ $? -ne 0 ] && echo "remove /sysadmin/.ssh/known_hosts failed"
+	;;
+*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /root/.ssh/known_hosts
+	[ $? -ne 0 ] && echo "remove /root/.ssh/known_hosts failed"
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /sysadmin/.ssh/known_hosts
+	[ $? -ne 0 ] && echo "remove /sysadmin/.ssh/known_hosts failed"
+	;;
+esac
+
+case ${OSVER} in
+c7|C7|c8|C8|a8|A8)
+##  guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "systemctl enable bb-client"
+#  guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "systemctl enable zabbix_agentd"
+  case ${UPPER_VMHOST} in
+  IDC2VMC33*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "systemctl enable zabbix-agent2"
+	[ $? -ne 0 ] && echo "systemctl enable zabbix-agent2 failed"
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "systemctl enable zabbix-agent2"
+	[ $? -ne 0 ] && echo "systemctl enable zabbix-agent2 failed"
+	;;
+  IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i command 'systemctl enable zabbix-agent2'"
+	[ $? -ne 0 ] && echo "systemctl enable zabbix-agent2 failed"
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i command 'systemctl enable zabbix-agent2'"
+	[ $? -ne 0 ] && echo "systemctl enable zabbix-agent2 failed"
+	;;
+  *)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "systemctl enable zabbix-agent2"
+	[ $? -ne 0 ] && echo "systemctl enable zabbix-agent2 failed"
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "systemctl enable zabbix-agent2"
+	[ $? -ne 0 ] && echo "systemctl enable zabbix-agent2 failed"
+	;;
+  esac
+  ;;
+c4|c6|C4|C6)
+##  guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "chkconfig bb-client on"
+#  guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "chkconfig zabbix_agentd on"
+#  guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "chkconfig zabbix_agentd on"
+  guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "chkconfig zabbix-agent2 on"
+  [ $? -ne 0 ] && echo "chkconfig zabbix_agentd on failed"
+  ;;
+esac
+
+#guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "rm -f /var/log/lastlog 2> /dev/null"
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /var/log/lastlog
+	[ $? -ne 0 ] && echo "remove /var/log/lastlog failed"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i rm /var/log/lastlog"
+	[ $? -ne 0 ] && echo "remove /var/log/lastlog failed"
+	;;
+*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /var/log/lastlog
+	[ $? -ne 0 ] && echo "remove /var/log/lastlog failed"
+	;;
+esac
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /var/lib/fusioninventory-agent/FusionInventory-Agent.dump
+	[ $? -ne 0 ] && echo "remove /var/lib/fusioninventory-agent/FusionInventory-Agent.dump failed"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i rm /var/lib/fusioninventory-agent/FusionInventory-Agent.dump"
+	[ $? -ne 0 ] && echo "remove /var/lib/fusioninventory-agent/FusionInventory-Agent.dump failed"
+	;;
+*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i rm /var/lib/fusioninventory-agent/FusionInventory-Agent.dump
+	[ $? -ne 0 ] && echo "remove /var/lib/fusioninventory-agent/FusionInventory-Agent.dump failed"
+	;;
+esac
+
+#guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "touch /var/log/lastlog"
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "touch /var/log/lastlog"
+	[ $? -ne 0 ] && echo "touch /var/log/lastlog failed"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i command 'touch /var/log/lastlog'"
+	[ $? -ne 0 ] && echo "touch /var/log/lastlog failed"
+	;;
+*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "touch /var/log/lastlog"
+	[ $? -ne 0 ] && echo "touch /var/log/lastlog failed"
+	;;
+esac
+
+#guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "touch /var/log/spooler"
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "touch /var/log/spooler"
+	[ $? -ne 0 ] && echo "touch /var/log/spooler failed"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	ssh ${UPPER_VMHOST} "guestfish -d ${DMN_NEW} -i command 'touch /var/log/spooler'"
+	[ $? -ne 0 ] && echo "touch /var/log/spooler failed"
+	;;
+*)
+	guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img -i command "touch /var/log/spooler"
+	[ $? -ne 0 ] && echo "touch /var/log/spooler failed"
+	;;
+esac
+
+case ${DMN_NEW_VOLUME} in
+L)
+	UPPER_HOSTNAME=`echo ${DMN_NEW_HOSTNAME}|tr [a-z] [A-Z]`
+	time dd if=/var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img of=/var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.dd
+	scp -p /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.dd ${DMN_NEW_VMHOST}:/tmp
+	ssh ${DMN_NEW_VMHOST} "lvcreate -L 20G -n lv${UPPER_HOSTNAME}-sys VGKVM ; time dd if=/tmp/${DMN_NEW}.dd of=/dev/VGKVM/lv${UPPER_HOSTNAME}-sys"
+	ssh ${DMN_NEW_VMHOST} "virsh detach-disk ${DMN_NEW} vda --config"
+	ssh ${DMN_NEW_VMHOST} "virsh attach-disk ${DMN_NEW} /dev/VGKVM/lv${UPPER_HOSTNAME}-sys vda --cache none --sourcetype block --config"
+	rm -f /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.dd
+	rm -f /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+	ssh ${DMN_NEW_VMHOST} "rm -f /tmp/${DMN_NEW}.dd"
+	;;
+esac
+
+case ${UPPER_VMHOST} in
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	echo ""
+	;;
+*)
+	virsh pool-refresh ${DMN_NEW_VOLUME_POOL_SYSTEM}
+	[ "${DMN_NEW_VOLUME_POOL_DATA}" != "${DMN_NEW_VOLUME_POOL_SYSTEM}" ] && virsh pool-refresh ${DMN_NEW_VOLUME_POOL_DATA}
+	virsh pool-destroy ${DMN_NEW_VOLUME_POOL_SYSTEM}
+	[ "${DMN_NEW_VOLUME_POOL_DATA}" != "${DMN_NEW_VOLUME_POOL_SYSTEM}" ] && virsh pool-destroy ${DMN_NEW_VOLUME_POOL_DATA}
+        virsh undefine ${DMN_NEW}
+	;;
+esac
+

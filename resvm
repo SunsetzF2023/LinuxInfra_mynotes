@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cd /home/vm-script
+./vm-create c6 resvm01-res11 res11 192.168.159.81 resvm01 4 32 1 ; \
+./vm-create c6 resvm01-res12 res12 192.168.159.82 resvm01 4 32 1 ; \
+./vm-create c6 resvm01-res13 res13 192.168.159.83 resvm01 4 32 1 ; \
+./vm-create c6 resvm01-res14 res14 192.168.159.84 resvm01 4 64 1 ; \
+./vm-create c6 resvm01-res15 res15 192.168.159.85 resvm01 4 64 1 ; \
+./vm-create c6 resvm01-res16 res16 192.168.159.86 resvm01 4 64 1 

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+./vm-create c6 idc2vm16-smm-at06 smm-at06 192.168.202.193 idc2vm16G 4 32 2 ; \
+./vm-create c6 idc2vm17-smm-at07 smm-at07 192.168.202.194 idc2vm17G 4 32 2 ; \
+./vm-create c6 idc2vm18-smm-solr12 smm-solr12 192.168.202.195 idc2vm18G 4 32 5 ; \
+./vm-create c6 idc2vm19-smm-solr13 smm-solr13 192.168.202.196 idc2vm19G 4 32 5 ; \
+./vm-create c6 idc2vm20-smm-solr14 smm-sole14 192.168.202.197 idc2vm20G 4 32 5 ; \
+./vm-create c6 idc2vm16-smm-solr15 smm-solr15 192.168.202.198 idc2vm16G 4 32 2 ; \
+./vm-create c6 idc2vm17-smm-solr16 smm-solr16 192.168.202.199 idc2vm17G 4 32 2 ; \
+./vm-create c6 idc2vm18-smm-app09 smm-app09 192.168.202.200 idc2vm18G 4 32 2 ; \
+./vm-create c6 idc2vm19-smm-app10 smm-app10 192.168.202.201 idc2vm19G 4 32 2
+

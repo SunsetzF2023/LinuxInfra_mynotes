@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#./vm-create c6 t1ssvm03-t1ss106 t1ss106 192.168.152.87 t1ssvm03 4 44 100 ; \
+./vm-create c6 t1ssvm03-t1ss107 t1ss107 192.168.154.87 t1ssvm03 4 44 100 ; \
+./vm-create c6 t1ssvm03-t1ss108 t1ss108 192.168.158.87 t1ssvm03 4 44 100 ; \
+./vm-create c6 t1ssvm03-t1ss109 t1ss109 192.168.159.87 t1ssvm03 4 44 100 ; \
+./vm-create c6 t2ssvm03-t2ss106 t2ss106 192.168.152.88 t2ssvm03 4 44 100 ; \
+./vm-create c6 t2ssvm03-t2ss107 t2ss107 192.168.154.88 t2ssvm03 4 44 100 ; \
+./vm-create c6 t2ssvm03-t2ss108 t2ss108 192.168.158.88 t2ssvm03 4 44 100 ; \
+./vm-create c6 t2ssvm03-t2ss109 t2ss109 192.168.159.88 t2ssvm03 4 44 100 ; \
+./vm-create c6 t3ssvm03-t3ss106 t3ss106 192.168.152.89 t3ssvm03 4 44 100 ; \
+./vm-create c6 t3ssvm03-t3ss107 t3ss107 192.168.154.89 t3ssvm03 4 44 100 ; \
+./vm-create c6 t3ssvm03-t3ss108 t3ss108 192.168.158.89 t3ssvm03 4 44 100 ; \
+./vm-create c6 t3ssvm03-t3ss109 t3ss109 192.168.159.89 t3ssvm03 4 44 100

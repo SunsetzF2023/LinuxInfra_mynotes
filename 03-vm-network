@@ -1,0 +1,294 @@
+#!/bin/bash
+
+#if [ -z "$4" ]
+#then
+#        echo "Usage: vm-network [Orig Domain Hostname] [New Domain] [New Domain Hostname] [New Domain IP]"
+#	echo "eg. vm-network centos6 idcvm42-test2 test2 192.168.157.111"
+#        echo "Press any key to continue ..." ; read
+#        exit
+#fi
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	VIRSH="virsh"
+	VIRTEDIT="virt-edit"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	VIRSH="ssh ${UPPER_VMHOST} virsh"
+	VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit"
+	;;
+*)
+	case ${OSVER} in
+	c8|C8|a8|A8)
+		VIRSH="ssh ${UPPER_VMHOST} virsh"
+		VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit"
+		;;
+	*)
+		VIRSH="virsh"
+		VIRTEDIT="virt-edit"
+		;;
+	esac
+	;;
+esac
+
+case ${OSVER} in
+c8|C8|a8|A8)
+	NIC="ens3"
+	;;
+*)
+	NIC="eth0"
+	;;
+esac
+
+MAC_ORIG=`${VIRSH} dumpxml ${DMN_NEW}|grep "mac address"|cut -f2 -d\'`
+DMN_NEW_IF=`echo ${DMN_NEW_IP}|cut -f3 -d.`
+
+${VIRSH} detach-interface ${DMN_NEW} bridge ${MAC_ORIG} --config > /dev/null
+RET=$?
+if [ "${RET}" = 0 ]
+then
+	echo -e "[03]New Domain ${DMN_NEW} Interface detached successfully"
+else
+	echo -e "\n[03]New Domain ${DMN_NEW} Interface detached FAIL\n"
+	exit 999
+fi
+
+case ${DMN_NEW_IF} in
+80)
+	${VIRSH} attach-interface ${DMN_NEW} bridge bri0 --model virtio --config > /dev/null
+	RET=$?
+	;;
+137)
+	${VIRSH} attach-interface ${DMN_NEW} bridge bri_136 --model virtio --config > /dev/null
+	RET=$?
+	;;
+*)
+	${VIRSH} attach-interface ${DMN_NEW} bridge bri_${DMN_NEW_IF} --model virtio --config > /dev/null
+	RET=$?
+	;;
+esac
+if [ "${RET}" = 0 ]
+then
+	echo -e "[03]New Domain ${DMN_NEW} Interface bri_${DMN_NEW_IF} attached successfully"
+else
+	echo -e "\n[03]New Domain ${DMN_NEW} Interface bri_${DMN_NEW_IF} attached FAIL\n"
+	exit 999
+fi
+
+case ${UPPER_VMHOST} in
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network-scripts/ifcfg-${NIC} -e "s/^IPADDR=.*/IPADDR=${DMN_NEW_IP}/"
+	RET=$?
+	;;
+*)
+	${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+	 /etc/sysconfig/network-scripts/ifcfg-${NIC} -e "s/^IPADDR=.*/IPADDR=${DMN_NEW_IP}/"
+	RET=$?
+	;;
+esac
+if [ "${RET}" = 0 ]
+then
+	echo -e "[03]New Domain ${DMN_NEW} IP ${DMN_NEW_IP} set successfully"
+else
+	echo -e "\n[03]New Domain ${DMN_NEW} IP ${DMN_NEW_IP} set FAIL\n"
+	exit 999
+fi
+
+case ${OSVER} in
+c7|C7|c8|C8|a8|A8)
+#  guestfish -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_ORIG}.img -i command "cp -p /etc/sysconfig/network-scripts/.route-${NIC} /etc/sysconfig/network-scripts/route-${NIC}"
+  case ${UPPER_VMHOST} in
+  IDC2VMC33*)
+	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network-scripts/route-${NIC} -e "s/^192.168.0.0.*/192.168.0.0\/16 via 192.168.${DMN_NEW_IF}.254 dev ${NIC}/"
+	RET1=$?
+	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network-scripts/route-${NIC} -e "s/^default.*/default via 192.168.${DMN_NEW_IF}.254 dev ${NIC}/"
+	RET2=$?
+	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network -e "s/^GATEWAY=.*/GATEWAY=192.168.${DMN_NEW_IF}.254/"
+	RET3=$?
+	RET=`expr ${RET1} + ${RET2} + ${RET3}`
+	;;
+  IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network-scripts/route-${NIC} -e "\"s/^192.168.0.0.*/192.168.0.0\/16 via 192.168.${DMN_NEW_IF}.254 dev ${NIC}/\""
+	RET1=$?
+	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network-scripts/route-${NIC} -e "\"s/^default.*/default via 192.168.${DMN_NEW_IF}.254 dev ${NIC}/\""
+	RET2=$?
+	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network -e "\"s/^GATEWAY=.*/GATEWAY=192.168.${DMN_NEW_IF}.254/\""
+	RET3=$?
+	RET=`expr ${RET1} + ${RET2} + ${RET3}`
+	;;
+  *)
+#	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network-scripts/route-${NIC} -e "s/^192.168.0.0.*/192.168.0.0\/16 via 192.168.${DMN_NEW_IF}.254 dev ${NIC}/"
+#	RET1=$?
+#	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network-scripts/route-${NIC} -e "s/^default.*/default via 192.168.${DMN_NEW_IF}.254 dev ${NIC}/"
+#	RET2=$?
+#	${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network -e "s/^GATEWAY=.*/GATEWAY=192.168.${DMN_NEW_IF}.254/"
+#	${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+	${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img /etc/sysconfig/network-scripts/route-${NIC} -e "s/^192.168.0.0.*/192.168.0.0\/16\ via\ 192.168.${DMN_NEW_IF}.254\ dev\ ${NIC}/"
+	RET1=$?
+	${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+	 /etc/sysconfig/network-scripts/route-${NIC} -e "s/^default.*/default\ via\ 192.168.${DMN_NEW_IF}.254\ dev\ ${NIC}/"
+	RET2=$?
+	${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+	 /etc/sysconfig/network -e "s/^GATEWAY=.*/GATEWAY=192.168.${DMN_NEW_IF}.254/"
+	RET3=$?
+	RET=`expr ${RET1} + ${RET2} + ${RET3}`
+	;;
+esac
+  if [ "${RET}" = 0 ]
+  then
+	echo -e "[03]New Domain ${DMN_NEW} Gateway 192.168.${DMN_NEW_IF}.254 set successfully"
+  else
+	echo -e "\n[03]New Domain ${DMN_NEW} Gateway 192.168.${DMN_NEW_IF}.254 set FAIL ${RET1} ${RET2} ${RET3}\n"
+	exit 999
+  fi
+  ;;
+c4|c6|C4|C6)
+  ${VIRTEDIT} -d ${DMN_NEW} /etc/sysconfig/network -e "s/^GATEWAY=.*/GATEWAY=192.168.${DMN_NEW_IF}.254/"
+  RET=$?
+  if [ "${RET}" = 0 ]
+  then
+	echo -e "[03]New Domain ${DMN_NEW} Gateway 192.168.${DMN_NEW_IF}.254 set successfully"
+  else
+	echo -e "\n[03]New Domain ${DMN_NEW} Gateway 192.168.${DMN_NEW_IF}.254 set FAIL\n"
+	exit 999
+  fi
+  ;;
+esac
+
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bb-hosts -e "\"s/^.*${DMN_ORIG_HOSTNAME}/${DMN_NEW_IP} ${DMN_NEW}/\""
+##RET=$?
+##if [ "${RET}" = 0 ]
+##then
+##	echo -e "[03]New Domain ${DMN_NEW} bb-hosts modified successfully"
+##else
+##	echo -e "\n[03]New Domain ${DMN_NEW} bb-hosts modified FAIL\n"
+##	exit 999
+##fi
+
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbaliasname -e "\"s/${DMN_ORIG_HOSTNAME}/${DMN_NEW}/\""
+##RET=$?
+##if [ "${RET}" = 0 ]
+##then
+##	echo -e "[03]New Domain ${DMN_NEW} bbaliasname modified successfully"
+##else
+##
+##	echo -e "\n[03]New Domain ${DMN_NEW} bbaliasname modified FAIL\n"
+##	exit 999
+##fi
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+##	${VIRTEDIT} -d ${DMN_NEW} /home/zabbix/etc/zabbix_agentd.conf -e "s/Hostname=${DMN_ORIG_HOSTNAME}/Hostname=${DMN_NEW_HOSTNAME}/"
+	${VIRTEDIT} -d ${DMN_NEW} /etc/zabbix/zabbix_agent2.conf -e "s/Hostname=${DMN_ORIG_HOSTNAME}/Hostname=${DMN_NEW_HOSTNAME}/"
+	RET=$?
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+##	${VIRTEDIT} -d ${DMN_NEW} /home/zabbix/etc/zabbix_agentd.conf -e "\"s/Hostname=${DMN_ORIG_HOSTNAME}/Hostname=${DMN_NEW_HOSTNAME}/\""
+	${VIRTEDIT} -d ${DMN_NEW} /etc/zabbix/zabbix_agent2.conf -e "\"s/Hostname=${DMN_ORIG_HOSTNAME}/#Hostname=${DMN_NEW_HOSTNAME}/\""
+	RET=$?
+	;;
+*)
+#	${VIRTEDIT} -d ${DMN_NEW} /home/zabbix/etc/zabbix_agentd.conf -e "s/Hostname=${DMN_ORIG_HOSTNAME}/Hostname=${DMN_NEW_HOSTNAME}/"
+##	${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+	 /home/zabbix/etc/zabbix_agentd.conf -e "s/Hostname=${DMN_ORIG_HOSTNAME}/Hostname=${DMN_NEW_HOSTNAME}/"
+	${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+	 /etc/zabbix/zabbix_agent2.conf -e "s/Hostname=${DMN_ORIG_HOSTNAME}/#Hostname=${DMN_NEW_HOSTNAME}/"
+	RET=$?
+	;;
+esac
+if [ "${RET}" = 0 ]
+then
+	echo -e "[03]New Domain ${DMN_NEW} zabbix_agentd.conf modified successfully"
+else
+	echo -e "\n[03]New Domain ${DMN_NEW} zabbix_agentd.conf modified FAIL\n"
+	exit 999
+fi
+
+#echo ${DMN_NEW}|grep idc2vm > /dev/null 2>&1
+#RET=$?
+RET=0
+if [ "${RET}" = 0 ]
+then
+	case ${UPPER_VMHOST} in
+	IDC2VMC33*)
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "s/192.168.153.101/192.168.201.27/"
+		RET1=$?
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "s/192.168.153.126/192.168.201.28/"
+		RET1=`expr ${RET1} \+ $?`
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/^nameserver 192.168.153.26/##nameserver 192.168.153.26/\""
+		RET1=`expr ${RET1} \+ $?`
+		;;
+	IDC2VMC*)
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.101/192.168.201.27/\""
+		RET1=$?
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.126/192.168.201.28/\""
+		RET1=`expr ${RET1} \+ $?`
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/^nameserver 192.168.153.26/##nameserver 192.168.153.26/\""
+		RET1=`expr ${RET1} \+ $?`
+		;;
+	IDC3SVMC*)
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.101/192.168.71.7/\""
+		RET1=$?
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.126/192.168.71.8/\""
+		RET1=`expr ${RET1} \+ $?`
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/^nameserver 192.168.153.26/##nameserver 192.168.153.26/\""
+		RET1=`expr ${RET1} \+ $?`
+		;;
+	IDC3HVMC*)
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.101/192.168.160.7/\""
+		RET1=$?
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.126/192.168.160.8/\""
+		RET1=`expr ${RET1} \+ $?`
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/^nameserver 192.168.153.26/##nameserver 192.168.153.26/\""
+		RET1=`expr ${RET1} \+ $?`
+		;;
+	IDC3VMC*)
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.101/192.168.158.104/\""
+		RET1=$?
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/192.168.153.126/192.168.158.105/\""
+		RET1=`expr ${RET1} \+ $?`
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "\"s/^nameserver 192.168.153.26/##nameserver 192.168.153.26/\""
+		RET1=`expr ${RET1} \+ $?`
+		;;
+	*)
+#		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "s/192.168.153.101/192.168.201.27/"
+		${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+		 /etc/resolv.conf -e "s/192.168.153.101/192.168.201.27/"
+		RET1=$?
+#		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "s/192.168.153.126/192.168.201.28/"
+		${VIRTEDIT} -a /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img \
+		 /etc/resolv.conf -e "s/192.168.153.126/192.168.201.28/"
+		RET1=`expr ${RET1} \+ $?`
+		;;
+	esac
+
+	if [ "${RET1}" = 0 ]
+	then
+		echo -e "[03]New Domain ${DMN_NEW} resolv.conf modified successfully"
+	else
+		echo -e "\n[03]New Domain ${DMN_NEW} resolv.conf modified FAIL\n"
+		exit 999
+	fi
+fi
+
+echo ${DMN_NEW}|egrep 'idc3' > /dev/null 2>&1
+RET=$?
+if [ "${RET}" = 0 ]
+then
+	case ${UPPER_VMHOST} in
+	IDC3HVM*)
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "s/192.168.153.101/192.168.161.97/"
+		RET1=$?
+		${VIRTEDIT} -d ${DMN_NEW} /etc/resolv.conf -e "s/192.168.153.126/192.168.161.98/"
+		RET1=`expr ${RET1} \+ $?`
+		;;
+	esac
+
+	if [ "${RET1}" = 0 ]
+	then
+		echo -e "[03]New Domain ${DMN_NEW} resolv.conf modified successfully"
+	else
+		echo -e "\n[03]New Domain ${DMN_NEW} resolv.conf modified FAIL\n"
+		exit 999
+	fi
+fi

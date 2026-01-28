@@ -1,0 +1,106 @@
+#!/bin/bash
+
+#if [ -z "$2" ]
+#then
+#	echo "Usage: vm-clone [Orig Domain] [New Domain] (image file path)"
+#	echo "eg. vm-clone centos6 idcvm42-test2"
+#	echo "Press any key to continue ..." ; read
+#	exit
+#fi
+
+#DMN_ORIG=$1
+#DMN_NEW=$2
+DMN_NEW_IF=`echo ${DMN_NEW_IP}|cut -f3 -d.`
+IMG_PATH="/var/lib/libvirt/images"
+
+virsh domstate ${DMN_ORIG} | grep "shut off" > /dev/null 2>&1
+RET=$?
+if [ "${RET}" != 0 ]
+then
+	echo -e "\n[01]Original Domain ${DMN_ORIG} is not stopped, Clone abort\n"
+	exit 999
+fi
+
+case ${OSVER} in
+c6|C6|c4|C4)
+	virt-v2v -op ${DMN_NEW_VOLUME_POOL_SYSTEM} -oa sparse -on ${DMN_NEW} --bridge bri_${DMN_NEW_IF} ${DMN_ORIG}
+	RET=$?
+	;;
+c7|C7|c8|C8|a8|A8)
+	case ${DMN_NEW_VOLUME} in
+	C)
+		case ${DMN_NEW} in
+		idc2vmC*|idc2vmc*)
+			ssh idc2vmC01 "qemu-img convert -p -O rbd -S 30G /S/${DMN_ORIG}.img ${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img:conf=/etc/ceph/cephspace.conf"
+			RET=$?
+#			ssh idc2vmC01 "rbd --cluster cephspace disk-usage -p libvirt-pool|grep ${DMN_NEW}.img"
+			if [ $RET -ne 0 ]
+			then
+				echo "Create ceph rbd image failed"
+				exit 999
+			fi
+			/home/vm-script/012-vm-ceph-xml
+			;;
+		idc3vmC*|idc3vmc*)
+			ssh idc3vmC01 "qemu-img convert -p -O rbd /S/${DMN_ORIG}.img ${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img:conf=/etc/ceph/wiseceph-alc.conf"
+			RET=$?
+#			ssh idc3vmC01 "rbd --cluster cephspace disk-usage -p libvirt-pool|grep ${DMN_NEW}.img"
+			if [ $RET -ne 0 ]
+			then
+				echo "Create ceph rbd image failed"
+				exit 999
+			fi
+			/home/vm-script/014-vm-ceph2-xml
+			;;
+		idc3SvmC*|idc3svmC*|idc3Svmc*|idc3svmc*)
+			ssh idc3SvmC01 "qemu-img convert -p -O rbd /S/${DMN_ORIG}.img ${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img:conf=/etc/ceph/wiseceph-idc3s.conf"
+			RET=$?
+#			ssh idc3SvmC01 "rbd --cluster cephspace disk-usage -p libvirt-pool|grep ${DMN_NEW}.img"
+			if [ $RET -ne 0 ]
+			then
+				echo "Create ceph rbd image failed"
+				exit 999
+			fi
+			/home/vm-script/015-vm-wiseceph-idc3s-xml
+			;;
+		idc3HvmC*|idc3hvmC*|idc3Hvmc*|idc3hvmc*)
+			ssh idc3HvmC01 "qemu-img convert -p -O rbd /S/${DMN_ORIG}.img ${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img:conf=/etc/ceph/wiseceph-idc3h.conf"
+			RET=$?
+			if [ $RET -ne 0 ]
+			then
+				echo "Create ceph rbd image failed"
+				exit 999
+			fi
+			/home/vm-script/016-vm-wiseceph-idc3h-xml
+			;;
+		esac
+		;;
+	*)
+		qemu-img convert -O raw -S 30G -p /var/lib/libvirt/images/${DMN_ORIG}.img /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+		RET=$?
+		case ${DMN_NEW_VMHOST} in
+		idc3vm0*|idc3vm1*|idc3vm2[345678]*|idc3vm3[789]*|idc3vm4*|idc3vmX*|idc3vmD*|idc3Hvm[0123]*)
+			/home/vm-script/013-vm-glus-scsi-xml
+			;;
+		*)
+			/home/vm-script/011-vm-xml
+			;;
+		esac
+		;;
+	esac
+	;;
+d9|D9)
+	qemu-img convert -O raw -S 20G -p /var/lib/libvirt/images/${DMN_ORIG}.img /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_SYSTEM}/${DMN_NEW}.img
+	RET=$?
+	/home/vm-script/011-vm-xml
+	;;
+esac
+if [ "${RET}" = 0 ]
+then
+	echo -e "\n[01]New Domain ${DMN_NEW} created successfully"
+else
+	echo -e "\n[01]New Domain ${DMN_NEW} created FAIL\n"
+	exit 999
+fi
+
+

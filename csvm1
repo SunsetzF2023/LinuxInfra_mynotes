@@ -1,0 +1,30 @@
+#!/bin/bash
+
+./vm-create c6 t1csvm102-t1cs102a t1cs102a 192.168.152.182 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102b t1cs102b 192.168.152.183 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102c t1cs102c 192.168.152.184 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102d t1cs102d 192.168.152.185 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102e t1cs102e 192.168.152.186 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102f t1cs102f 192.168.152.187 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102g t1cs102g 192.168.152.188 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102h t1cs102h 192.168.152.189 t1csvm102 2 31 2 ; \
+./vm-create c6 t1csvm102-t1cs102i t1cs102i 192.168.152.190 t1csvm102 2 48 2 ; \
+./vm-create c6 t2csvm102-t2cs102a t2cs102a 192.168.152.191 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102b t2cs102b 192.168.152.192 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102c t2cs102c 192.168.152.193 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102d t2cs102d 192.168.152.194 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102e t2cs102e 192.168.152.195 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102f t2cs102f 192.168.152.196 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102g t2cs102g 192.168.152.197 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102h t2cs102h 192.168.152.198 t2csvm102 2 31 2 ; \
+./vm-create c6 t2csvm102-t2cs102i t2cs102i 192.168.152.199 t2csvm102 2 48 2 ; \
+./vm-create c6 t3csvm102-t3cs102a t3cs102a 192.168.152.203 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102b t3cs102b 192.168.152.204 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102c t3cs102c 192.168.152.205 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102d t3cs102d 192.168.152.206 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102e t3cs102e 192.168.152.207 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102f t3cs102f 192.168.152.208 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102g t3cs102g 192.168.152.209 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102h t3cs102h 192.168.152.210 t3csvm102 2 31 2 ; \
+./vm-create c6 t3csvm102-t3cs102i t3cs102i 192.168.152.211 t3csvm102 2 48 2
+

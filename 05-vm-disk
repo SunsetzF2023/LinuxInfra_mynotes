@@ -1,0 +1,96 @@
+#!/bin/bash
+
+
+UPPER_HOSTNAME=`echo ${DMN_NEW_HOSTNAME}|tr [a-z] [A-Z]`
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	QEMUIMG="qemu-img"
+	VIRTEDIT="virt-edit"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	QEMUIMG="ssh ${UPPER_VMHOST} qemu-img"
+	VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit"
+	;;
+*)
+	case ${OSVER} in
+	c8|C8|a8|A8)
+		QEMUIMG="ssh ${UPPER_VMHOST} qemu-img"
+		VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit"
+		;;
+	*)
+		QEMUIMG="qemu-img"
+		VIRTEDIT="virt-edit"
+		;;
+	esac
+	;;
+esac
+
+#ssh ${DMN_NEW_VMHOST} qemu-img create -f raw /var/lib/libvirt/images/${DMN_NEW_VMHOST}D/${DMN_NEW}.img ${DMN_NEW_DISK}g
+if [ ${DMN_NEW_DISK} -gt 0 ]
+then
+    case ${DMN_NEW_VOLUME} in
+    C)
+	DISKSIZE=`expr ${DMN_NEW_DISK} \* 100`
+	case ${UPPER_VMHOST} in
+	IDC2VMC*)
+		${QEMUIMG} create -f rbd rbd:libvirt-pool/${DMN_NEW}-D01.img:conf=/etc/ceph/cephspace.conf ${DISKSIZE}g
+		RET=$?
+		;;
+	IDC3VMC*)
+		${QEMUIMG} create -f rbd rbd:libvirt-pool/${DMN_NEW}-D01.img:conf=/etc/ceph/wiseceph-alc.conf ${DISKSIZE}g
+		RET=$?
+		;;
+	IDC3SVMC*)
+		${QEMUIMG} create -f rbd rbd:libvirt-pool/${DMN_NEW}-D01.img:conf=/etc/ceph/wiseceph-idc3s.conf ${DISKSIZE}g
+		RET=$?
+		;;
+	IDC3HVMC*)
+		${QEMUIMG} create -f rbd rbd:libvirt-pool/${DMN_NEW}-D01.img:conf=/etc/ceph/wiseceph-idc3h.conf ${DISKSIZE}g
+		RET=$?
+		;;
+	esac
+	;;
+    G|V)
+#	DISKPART=${DMN_NEW_DISK}
+#	while [ ${DISKPART} -gt 0 ]
+#	do
+#		${QEMUIMG} create -f raw /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_DATA}/${DMN_NEW}-D0${DISKPART}.img 100g
+#		RET=`expr ${RET} \+ $?`
+#		DISKPART=`expr ${DISKPART} \- 1`
+#	done
+	DISKSIZE=`expr ${DMN_NEW_DISK} \* 100`
+	${QEMUIMG} create -f raw /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_DATA}/${DMN_NEW}-D01.img ${DISKSIZE}g
+	chown qemu:qemu /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_DATA}/${DMN_NEW}-D01.img
+	chmod +r /var/lib/libvirt/images/${DMN_NEW_VOLUME_POOL_DATA}/${DMN_NEW}-D01.img
+	;;
+    L)
+	DMN_NEW_DISK=`expr ${DMN_NEW_DISK} \* 100`
+	ssh ${DMN_NEW_VMHOST} "lvcreate -L ${DMN_NEW_DISK}G -n lv${UPPER_HOSTNAME}-data VGKVM"
+	RET=$?
+	;;
+    esac
+	if [ "${RET}" = 0 ]
+	then
+		echo -e "[05]New Domain ${DMN_NEW} ${DMN_NEW_DISK}*100GB device image created successfully"
+	else
+		echo -e "\n[05]New Domain ${DMN_NEW} ${DMN_NEW_DISK}*100GB device image created FAIL\n"
+		exit 999
+	fi
+fi
+
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/DFWARN=80/DFWARN=50/"
+##RET1=$?
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/DFPANIC=85/DFPANIC=75/"
+##RET2=$?
+##RET=`expr ${RET1} + ${RET2}`
+
+##if [ "${RET}" = 0 ]
+##then
+##	echo -e "[05]New Domain ${DMN_NEW} bbdef-client.sh DF modified successfully"
+##else
+##	echo -e "\n[05]New Domain ${DMN_NEW} bbdef-client.sh DF modified FAIL\n"
+##	exit 999
+##fi
+
+

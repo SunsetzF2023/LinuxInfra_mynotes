@@ -1,0 +1,18 @@
+#!/bin/bash
+
+VMSCRIPTHOME="/home/vm-script" ; export VMSCRIPTHOME
+
+. ${VMSCRIPTHOME}/color
+. ${VMSCRIPTHOME}/00-vm-variable
+
+echo -e "\nStarting at `date +'%H:%M'` ..."
+
+${VMSCRIPTHOME}/01-vm-clone
+${VMSCRIPTHOME}/02-vm-reset
+${VMSCRIPTHOME}/03-vm-network
+${VMSCRIPTHOME}/04-vm-cpumem
+${VMSCRIPTHOME}/05-vm-disk
+${VMSCRIPTHOME}/06-vm-deploy
+
+echo -e "*** Finished at `date +'%H:%M'`\n"
+

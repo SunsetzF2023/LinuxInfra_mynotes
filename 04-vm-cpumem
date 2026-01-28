@@ -1,0 +1,84 @@
+#!/bin/bash
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	VIRSH="virsh"
+	VIRTEDIT="virt-edit"
+	;;
+IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+	VIRSH="ssh ${UPPER_VMHOST} virsh"
+	VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit"
+	;;
+*)
+	case ${OSVER} in
+	c8|C8|a8|A8)
+		VIRSH="ssh ${UPPER_VMHOST} virsh"
+		VIRTEDIT="ssh ${UPPER_VMHOST} virt-edit"
+		;;
+	*)
+		VIRSH="virsh"
+		VIRTEDIT="virt-edit"
+		;;
+	esac
+	;;
+esac
+
+${VIRSH} setvcpus ${DMN_NEW} ${DMN_NEW_CPU} --config > /dev/null
+RET=$?
+if [ "${RET}" = 0 ]
+then
+	echo -e "[04]New Domain ${DMN_NEW} ${DMN_NEW_CPU} CPU set successfully"
+else
+	echo -e "\n[04]New Domain ${DMN_NEW} ${DMN_NEW_CPU} CPU set FAIL\n"
+	exit 999
+fi
+
+MEM=`expr ${DMN_NEW_MEM} \* 1024`
+${VIRSH} setmaxmem ${DMN_NEW} ${MEM}M --config > /dev/null
+RET1=$?
+${VIRSH} setmem ${DMN_NEW} ${MEM}M --config > /dev/null
+RET2=$?
+RET=`expr ${RET1} + ${RET2}`
+if [ "${RET}" = 0 ]
+then
+	echo -e "[04]New Domain ${DMN_NEW} ${DMN_NEW_MEM}GB Memory set successfully"
+else
+	echo -e "\n[04]New Domain ${DMN_NEW} ${DMN_NEW_MEM}GB Memory set FAIL\n"
+	exit 999
+fi
+
+##case ${DMN_NEW_CPU} in
+##4)
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/CPUWARN=650/CPUWARN=1250/"
+##RET1=$?
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/CPUPANIC=850/CPUPANIC=1450/"
+##RET2=$?
+##RET=`expr ${RET1} + ${RET2}`
+##;;
+##8)
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/CPUWARN=650/CPUWARN=1650/"
+##RET1=$?
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/CPUPANIC=850/CPUPANIC=2050/"
+##RET2=$?
+##RET=`expr ${RET1} + ${RET2}`
+##;;
+##16)
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/CPUWARN=650/CPUWARN=3250/"
+##RET1=$?
+##${VIRTEDIT} -d ${DMN_NEW} /home/bb4/bbc/etc/bbdef-client.sh -e "s/CPUPANIC=850/CPUPANIC=3850/"
+##RET2=$?
+##RET=`expr ${RET1} + ${RET2}`
+##;;
+##*)
+##RET=0
+##;;
+##esac
+
+##if [ "${RET}" = 0 ]
+##then
+##	echo -e "[04]New Domain ${DMN_NEW} bbdef-client.sh CPU modified successfully"
+##else
+##	echo -e "\n[04]New Domain ${DMN_NEW} bbdef-client.sh CPU modified FAIL\n"
+##	exit 999
+##fi
+

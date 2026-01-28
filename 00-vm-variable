@@ -1,0 +1,410 @@
+#!/bin/bash
+
+if [ "$1" = "help" ]
+then
+	echo "$0 <OSVER> <DMN_NEW> <DMN_NEW_HOSTNAME> <DMN_NEW_IP> <DMN_NEW_VMHOST> <DMN_NEW_CPU> <DMN_NEW_MEM> <DMN_NEW_DISK>"
+	exit
+fi
+
+if [ -z "$8" ]
+then
+
+while [ "${ANS}" != "y" ]
+do
+
+clear
+
+echo -e 'Choose OS version [Alma8(a8)/Centos7(c7)/Centos6(c6)/Centos4(c4)]: \c' ; read OSVER
+#echo -e 'Original Domain Name: \c' ; read DMN_ORIG
+#echo -e 'Original Domain Hostname: \c' ; read DMN_ORIG_HOSTNAME
+case ${OSVER} in
+d9|D9)
+  echo -e 'Clone Debian 9.x VM guest'
+  DMN_ORIG=debian9
+  DMN_ORIG_HOSTNAME=debian9
+  ;;
+c8|C8|a8|A8)
+  echo -e 'Clone CentOS 8.x VM guest'
+#  DMN_ORIG=centos8
+  DMN_ORIG=alma8
+  DMN_ORIG_HOSTNAME=centos8
+  ;;
+c7|C7)
+  echo -e 'Clone CentOS 7.x VM guest'
+  DMN_ORIG=centos7
+  DMN_ORIG_HOSTNAME=centos7
+  ;;
+c6|C6)
+  echo -e 'Clone CentOS 6.x VM guest'
+  DMN_ORIG=centos6
+  DMN_ORIG_HOSTNAME=centos6
+  ;;
+c4|C4)
+  echo -e 'Clone CentOS 4.9 VM guest'
+  DMN_ORIG=centos4
+  DMN_ORIG_HOSTNAME=centos4
+  ;;
+esac
+#echo -e 'Original Domain IP: \c' ; read DMN_ORIG_IP
+#echo -e 'Original Domain ImageFile Dir: \c' ; read DMN_ORIG_IMG_DIR
+#echo -e 'Original Domain VM Host: \c' ; read DMN_ORIG_VMHOST
+echo -e 'New Domain Name: \c' ; read DMN_NEW
+echo -e 'New Domain Hostname: \c' ; read DMN_NEW_HOSTNAME
+echo -e 'New Domain IP: \c' ; read DMN_NEW_IP
+#echo -e 'New Domain SYS ImageFile Dir: \c' ; read DMN_NEW_IMG_DIR
+#echo -e 'New Domain DATA ImageFile Dir: \c' ; read DMN_NEW_IMG_DIR2
+echo -e 'New Domain VM Host: \c' ; read DMN_NEW_VMHOST
+echo -e 'New Domain no. of cpu(1/2/4/8): \c' ; read DMN_NEW_CPU
+echo -e 'New Domain amount of memory(GB): \c' ; read DMN_NEW_MEM
+UPPER_HOSTNAME=`echo ${DMN_NEW_HOSTNAME}|tr [a-z] [A-Z]`
+export UPPER_HOSTNAME
+UPPER_VMHOST=`echo ${DMN_NEW_VMHOST}|tr [a-z] [A-Z]`
+export UPPER_VMHOST
+CHKDISKSIZE=F
+while [ ${CHKDISKSIZE} = "F" ]
+do
+	echo -e 'New Domain DataDisk(/d01) size(100GB): \c' ; read DMN_NEW_DISK
+	case ${DMN_NEW_DISK} in
+	1|2|3|4|5)
+		CHKDISKSIZE=T
+		;;
+	*)
+		case ${UPPER_VMHOST} in
+		IDC2VMC*|IDC3VMC*|IDC3SVMC*|IDC3HVMC*)
+			CHKDISKSIZE=T
+			;;
+		*)
+			echo "Valid value for DataDisk size = 1/2/3/4/5"
+			;;
+		esac
+		;;
+	esac
+done
+
+
+#export DMN_ORIG DMN_ORIG_HOSTNAME DMN_ORIG_IP DMN_ORIG_IMG_DIR DMN_ORIG_VMHOST DMN_NEW DMN_NEW_HOSTNAME DMN_NEW_IP DMN_NEW_IMG_DIR DMN_NEW_VMHOST
+export OSVER DMN_ORIG DMN_ORIG_HOSTNAME DMN_NEW DMN_NEW_HOSTNAME DMN_NEW_IP DMN_NEW_VMHOST DMN_NEW_CPU DMN_NEW_MEM DMN_NEW_DISK
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	DMN_NEW_VOLUME="G"
+	DMN_NEW_VOLUME_POOL_SYSTEM="idc2vmC33GS"
+	DMN_NEW_VOLUME_POOL_DATA="idc2vmC33GD"
+	export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+	;;
+IDC2VMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc2vmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc2vmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc2vmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc2vmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+IDC3VMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc3vmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc3vmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc3vmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc3vmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+IDC3SVMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc3SvmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc3SvmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc3SvmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc3SvmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+IDC3HVMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc3HvmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc3HvmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc3HvmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc3HvmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+*)
+	virsh pool-info ${DMN_NEW_VMHOST}S > /dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		virsh pool-info ${DMN_NEW_VMHOST}VGKVM > /dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			DMN_NEW_VOLUME="L"
+			DMN_NEW_VOLUME_POOL_SYSTEM="lvmguest"
+			DMN_NEW_VOLUME_POOL_DATA="lvmguest"
+		else
+			DMN_NEW_VOLUME="V"
+			DMN_NEW_VOLUME_POOL_SYSTEM=${DMN_NEW_VMHOST}VGKVM
+			DMN_NEW_VOLUME_POOL_DATA=${DMN_NEW_VMHOST}VGKVM
+		fi
+	else
+		DMN_NEW_VOLUME="G"
+		DMN_NEW_VOLUME_POOL_SYSTEM=${DMN_NEW_VMHOST}S
+		DMN_NEW_VOLUME_POOL_DATA=${DMN_NEW_VMHOST}D
+	fi
+	export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+	virsh pool-start ${DMN_NEW_VOLUME_POOL_SYSTEM}
+	[ "${DMN_NEW_VOLUME_POOL_DATA}" != "${DMN_NEW_VOLUME_POOL_SYSTEM}" ] && virsh pool-start ${DMN_NEW_VOLUME_POOL_DATA}
+	virsh pool-refresh ${DMN_NEW_VOLUME_POOL_SYSTEM}
+	[ "${DMN_NEW_VOLUME_POOL_DATA}" != "${DMN_NEW_VOLUME_POOL_SYSTEM}" ] && virsh pool-refresh ${DMN_NEW_VOLUME_POOL_DATA}
+	;;
+esac
+
+clear
+
+echo -e "Original Domain Name\t\t\t:${DMN_ORIG}"
+echo -e "Original Domain Hostname\t\t:${DMN_ORIG_HOSTNAME}"
+#echo -e "Original Domain IP\t\t:${DMN_ORIG_IP}"
+#echo -e "Original Domain ImageFile Dir\t:${DMN_ORIG_IMG_DIR}"
+#echo -e "Original Domain VM Host\t:${DMN_ORIG_VMHOST}"
+echo -e "New Domain Name\t\t\t\t:${DMN_NEW}"
+echo -e "New Domain Hostname\t\t\t:${DMN_NEW_HOSTNAME}"
+echo -e "New Domain IP\t\t\t\t:${DMN_NEW_IP}"
+#echo -e "New Domain SYS ImageFile Dir\t\t:${DMN_NEW_IMG_DIR}"
+#echo -e "New Domain DATA ImageFile Dir\t\t:${DMN_NEW_IMG_DIR2}"
+echo -e "New Domain VM Host\t\t\t:${DMN_NEW_VMHOST}"
+case ${DMN_NEW_VOLUME} in
+C) echo -e "New Domain ImageFile Type\t\t:Ceph RBD" ;;
+G) echo -e "New Domain ImageFile Type\t\t:Gluster File-based" ;;
+L) echo -e "New Domain ImageFile Type\t\t:Local LVM Raw Partition" ;;
+V) echo -e "New Domain ImageFile Type\t\t:VG (VGKVM) Image File" ;;
+esac
+echo -e "New Domain no. of cpu\t\t\t:${DMN_NEW_CPU}"
+echo -e "New Domain amount of memory\t\t:${DMN_NEW_MEM}GB"
+echo -e "New Domain DataDisk(/d01) size(GB)\t:`expr ${DMN_NEW_DISK} \* 100`GB"
+echo -e "Is it correct(y/N): \c" ; read ANS
+
+done
+
+else
+
+OSVER="$1"
+case ${OSVER} in
+d9|D9)
+  DMN_ORIG=debian9
+  DMN_ORIG_HOSTNAME=debian9
+  ;;
+c8|C8|a8|A8)
+  DMN_ORIG=alma8
+  DMN_ORIG_HOSTNAME=centos8
+  ;;
+c7|C7)
+  DMN_ORIG=centos7
+  DMN_ORIG_HOSTNAME=centos7
+  ;;
+c6|C6)
+  DMN_ORIG=centos6
+  DMN_ORIG_HOSTNAME=centos6
+  ;;
+c4|C4)
+  DMN_ORIG=centos4
+  DMN_ORIG_HOSTNAME=centos4
+  ;;
+esac
+DMN_NEW="$2"
+DMN_NEW_HOSTNAME="$3"
+DMN_NEW_IP="$4"
+DMN_NEW_VMHOST="$5"
+DMN_NEW_CPU="$6"
+DMN_NEW_MEM="$7"
+DMN_NEW_DISK="$8"
+
+export OSVER DMN_ORIG DMN_ORIG_HOSTNAME DMN_NEW DMN_NEW_HOSTNAME DMN_NEW_IP DMN_NEW_VMHOST DMN_NEW_CPU DMN_NEW_MEM DMN_NEW_DISK
+
+UPPER_HOSTNAME=`echo ${DMN_NEW_HOSTNAME}|tr [a-z] [A-Z]`
+export UPPER_HOSTNAME
+
+UPPER_VMHOST=`echo ${DMN_NEW_VMHOST}|tr [a-z] [A-Z]`
+export UPPER_VMHOST
+
+case ${UPPER_VMHOST} in
+IDC2VMC33*)
+	DMN_NEW_VOLUME="G"
+	DMN_NEW_VOLUME_POOL_SYSTEM="idc2vmC33GS"
+	DMN_NEW_VOLUME_POOL_DATA="idc2vmC33GD"
+	export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+	;;
+IDC2VMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc2vmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc2vmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc2vmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc2vmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+IDC3VMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc3vmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc3vmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc3vmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc3vmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+IDC3SVMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc3SvmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc3SvmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc3SvmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc3SvmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+IDC3HVMC*)
+	case ${OSVER} in
+	c7|C7|c8|C8|a8|A8)
+		DMN_NEW_VOLUME="C"
+		DMN_NEW_VOLUME_POOL_SYSTEM="rbd:libvirt-pool"
+		DMN_NEW_VOLUME_POOL_DATA="rbd:libvirt-pool"
+		export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+		ping -c3 idc3HvmC01 > /dev/null 2>&1
+		if [ $? -eq 0 ]
+		then
+			ssh idc3HvmC01 "mount|grep vmcontrol:/var/lib/libvirt/images > /dev/null 2>&1"
+			[ $? -ne 0 ] && ssh idc3HvmC01 "mount vmcontrol:/var/lib/libvirt/images /S"
+		else
+			echo "idc3HvmC01 unreachable, please check ..."
+			exit 999
+		fi
+		;;
+	*)
+		echo "CentOS 7 or above support on Ceph RBD image"
+		exit
+		;;
+	esac
+	;;
+*)
+	virsh pool-info ${DMN_NEW_VMHOST}S > /dev/null 2>&1
+	if [ $? -ne 0 ]
+	then
+		virsh pool-info ${DMN_NEW_VMHOST}VGKVM > /dev/null 2>&1
+		if [ $? -ne 0 ]
+		then
+			DMN_NEW_VOLUME="L"
+			DMN_NEW_VOLUME_POOL_SYSTEM="lvmguest"
+			DMN_NEW_VOLUME_POOL_DATA="lvmguest"
+		else
+			DMN_NEW_VOLUME="V"
+			DMN_NEW_VOLUME_POOL_SYSTEM=${DMN_NEW_VMHOST}VGKVM
+			DMN_NEW_VOLUME_POOL_DATA=${DMN_NEW_VMHOST}VGKVM
+		fi
+	else
+		DMN_NEW_VOLUME="G"
+		DMN_NEW_VOLUME_POOL_SYSTEM=${DMN_NEW_VMHOST}S
+		DMN_NEW_VOLUME_POOL_DATA=${DMN_NEW_VMHOST}D
+	fi
+	export DMN_NEW_VOLUME DMN_NEW_VOLUME_POOL_SYSTEM DMN_NEW_VOLUME_POOL_DATA
+	virsh pool-start ${DMN_NEW_VOLUME_POOL_SYSTEM}
+	[ "${DMN_NEW_VOLUME_POOL_DATA}" != "${DMN_NEW_VOLUME_POOL_SYSTEM}" ] && virsh pool-start ${DMN_NEW_VOLUME_POOL_DATA}
+	virsh pool-refresh ${DMN_NEW_VOLUME_POOL_SYSTEM}
+	[ "${DMN_NEW_VOLUME_POOL_DATA}" != "${DMN_NEW_VOLUME_POOL_SYSTEM}" ] && virsh pool-refresh ${DMN_NEW_VOLUME_POOL_DATA}
+	;;
+esac
+
+fi
+
